@@ -134,6 +134,10 @@ export default function ExpensesPage() {
         const renderCategoryGroup = (category: string, catItems: ExpenseItem[]) => {
           const catTotal = catItems.reduce((s: number, i: { amount: number }) => s + i.amount, 0)
           const catPaid = catItems.filter((i: { status: string }) => i.status === 'paid').reduce((s: number, i: { amount: number }) => s + i.amount, 0)
+          const sorted = [...catItems].sort((a, b) => {
+            const order: Record<string, number> = { unpaid: 0, partial: 1, paid: 2 }
+            return (order[a.status] ?? 0) - (order[b.status] ?? 0)
+          })
           return (
             <div key={category} className="space-y-2">
               <div className="flex items-center justify-between px-1">
@@ -141,7 +145,7 @@ export default function ExpensesPage() {
                 <span className="text-label-medium text-on-surface-variant">{formatMMK(catPaid)} / {formatMMK(catTotal)}</span>
               </div>
               <div className="space-y-1.5">
-                {catItems.map((item: ExpenseItem) => {
+                {sorted.map((item: ExpenseItem) => {
                   const statusIcon = item.status === 'paid' ? '✓' : item.status === 'partial' ? '◐' : '○'
                   const statusColor = item.status === 'paid' ? 'text-tertiary border-tertiary' : item.status === 'partial' ? 'text-[#e65100] border-[#e65100]' : 'text-on-surface-variant border-outline'
                   const dateLabel = item.latestPaymentDate ? formatDate(item.latestPaymentDate) : (item.status === 'paid' ? 'Paid' : '')
