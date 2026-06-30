@@ -36,6 +36,17 @@ yarn-error.log*
 # vercel
 .vercel
 
+# database
+*.db
+*.db-journal
+prisma/migrations/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ide
+.vscode/
+
+# docs
+api-spec.md

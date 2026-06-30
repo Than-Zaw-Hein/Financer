@@ -1,65 +1,136 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+import useSWR from 'swr'
+import { useState } from 'react'
+import { formatMMK } from '@/lib/format'
+import { CardSkeleton } from '@/components/ui/LoadingSkeleton'
+import ErrorState from '@/components/ui/ErrorState'
+import EmptyState from '@/components/ui/EmptyState'
+import ProgressBar from '@/components/ui/ProgressBar'
+import StatusBadge from '@/components/ui/StatusBadge'
+
+const fetcher = (url: string) => fetch(url).then(r => r.json())
+
+const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+export default function DashboardPage() {
+  const now = new Date()
+  const [month, setMonth] = useState(now.getMonth() + 1)
+  const [year, setYear] = useState(now.getFullYear())
+
+  const { data, error, isLoading, mutate } = useSWR(`/api/dashboard?month=${month}&year=${year}`, fetcher)
+
+  if (isLoading) return (
+    <div className="max-w-5xl mx-auto space-y-6 py-4">
+      <div className="h-8 w-48 bg-on-surface/10 rounded-full animate-pulse" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1,2,3,4].map(i => <CardSkeleton key={i} />)}
+      </div>
     </div>
-  );
+  )
+
+  if (error) return (
+    <div className="max-w-5xl mx-auto py-4">
+      <ErrorState message="Failed to load dashboard" onRetry={() => mutate()} />
+    </div>
+  )
+
+  if (!data || data.expenseCount === 0) return (
+    <div className="max-w-5xl mx-auto py-4">
+      <EmptyState title="No data yet" description="Add income sources and expenses to see your dashboard" action="Go to Expenses" onAction={() => window.location.href = '/expenses'} />
+    </div>
+  )
+
+  const health = data.financialHealth === 'healthy' ? data.paymentProgress >= 80 ? 'healthy' : 'warning'
+    : data.surplus < data.totalExpenses * -0.5 ? 'danger' : 'warning'
+
+  const healthStyles: Record<string, string> = {
+    healthy: 'bg-tertiary-container text-on-tertiary-container',
+    warning: 'bg-secondary-container text-on-secondary-container',
+    danger: 'bg-error-container text-on-error-container',
+  }
+
+  function prevMonth() {
+    if (month === 1) { setMonth(12); setYear(year - 1) } else setMonth(month - 1)
+  }
+  function nextMonth() {
+    if (month === 12) { setMonth(1); setYear(year + 1) } else setMonth(month + 1)
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6 py-4">
+      {/* Month Navigation */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={prevMonth} className="w-10 h-10 flex items-center justify-center rounded-[12px] bg-surface-container hover:bg-surface-container-high text-on-surface-variant transition-all" aria-label="Previous month">&larr;</button>
+          <h1 className="text-headline-small font-normal text-on-surface">{monthNames[month - 1]} {year}</h1>
+          <button onClick={nextMonth} className="w-10 h-10 flex items-center justify-center rounded-[12px] bg-surface-container hover:bg-surface-container-high text-on-surface-variant transition-all" aria-label="Next month">&rarr;</button>
+        </div>
+        <StatusBadge status={data.financialHealth === 'healthy' ? 'paid' : 'unpaid'} />
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <SummaryCard label="Income" value={formatMMK(data.totalIncome)} bg="bg-primary-container" text="text-on-primary-container" />
+        <SummaryCard label="Expenses" value={formatMMK(data.totalExpenses)} bg="bg-error-container" text="text-on-error-container" />
+        <SummaryCard label="Surplus" value={formatMMK(data.surplus)} bg={data.surplus >= 0 ? 'bg-tertiary-container' : 'bg-error-container'} text={data.surplus >= 0 ? 'text-on-tertiary-container' : 'text-on-error-container'} />
+        <SummaryCard label="Remaining Cash" value={formatMMK(data.remainingCash)} bg="bg-secondary-container" text="text-on-secondary-container" />
+      </div>
+
+      {/* Expense Progress */}
+      <div className="bg-surface rounded-[12px] shadow-elevation-1 p-6">
+        <h2 className="text-title-medium font-normal text-on-surface mb-4">Expense Progress</h2>
+        <ProgressBar
+          value={data.paymentProgress}
+          label={`${data.paymentProgress}%`}
+          sublabel={`${data.paidCount} paid / ${data.unpaidCount} unpaid / ${data.partialCount} partial`}
+          color={data.paymentProgress >= 80 ? 'tertiary' : data.paymentProgress >= 40 ? 'primary' : 'error'}
+        />
+      </div>
+
+      {/* Income Sources + Loans */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-surface rounded-[12px] shadow-elevation-1 p-6">
+          <h2 className="text-title-medium font-normal text-on-surface mb-3">Income Sources</h2>
+          <div className="space-y-2">
+            {data.incomeSources.map((s: { name: string; expected: number; actual: number }) => (
+              <div key={s.name} className="flex justify-between text-body-medium">
+                <span className="text-on-surface-variant">{s.name}</span>
+                <span className="text-on-surface font-medium">{formatMMK(s.actual || s.expected)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-surface rounded-[12px] shadow-elevation-1 p-6">
+          <h2 className="text-title-medium font-normal text-on-surface mb-3">Loan Summary</h2>
+          <div className="space-y-2 text-body-medium">
+            <div className="flex justify-between">
+              <span className="text-on-surface-variant">Total Balance</span>
+              <span className="text-error font-medium">{formatMMK(data.totalLoanBalance)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-on-surface-variant">Monthly Payment</span>
+              <span className="text-on-surface font-medium">{formatMMK(data.totalLoanPayment)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Health */}
+      <div className={`rounded-[12px] px-5 py-4 text-center text-title-medium font-normal ${healthStyles[health]}`}>
+        {health === 'healthy' ? 'Financial Health: Healthy'
+          : health === 'danger' ? 'Financial Health: Critical — expenses far exceed income'
+          : 'Financial Health: Warning — review your spending'}
+      </div>
+    </div>
+  )
+}
+
+function SummaryCard({ label, value, bg, text }: { label: string; value: string; bg: string; text: string }) {
+  return (
+    <div className={`rounded-[12px] shadow-elevation-1 p-5 ${bg}`}>
+      <p className="text-label-medium opacity-80mb-1">{label}</p>
+      <p className={`text-title-large font-normal ${text}`}>{value}</p>
+    </div>
+  )
 }

@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model IncomeSource {
+  id        String   @id @default(cuid())
+  name      String
+  amount    Float
+  type      String   @default("salary")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incomes   Income[]
+}
+
+model Income {
+  id           String   @id @default(cuid())
+  sourceId     String
+  amount       Float
+  month        Int
+  year         Int
+  receivedDate DateTime @default(now())
+  notes        String?
+
+  source       IncomeSource @relation(fields: [sourceId], references: [id])
+
+  @@unique([sourceId, month, year])
+  createdAt    DateTime @default(now())
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  name      String
+  nickname  String?
+  relation  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  balances  PersonBalance[]
+  payments  Payment[]
+  expenses  Expense[]       @relation("ExpensePerson")
+}
+
+model PersonBalance {
+  id        String @id @default(cuid())
+  personId  String
+  month     Int
+  year      Int
+  totalOwed Float
+  totalPaid Float
+  balance   Float
+
+  person    Person @relation(fields: [personId], references: [id])
+
+  @@unique([personId, month, year])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  name        String
+  amount      Float
+  category    String
+  status      String   @default("unpaid")
+  paidAmount  Float?
+  month       Int
+  year        Int
+  dueDay      Int?
+  isRecurring Boolean  @default(true)
+  notes       String?
+  personId    String?
+
+  person      Person?  @relation("ExpensePerson", fields: [personId], references: [id])
+  payments    Payment[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  amount      Float
+  paymentDate DateTime @default(now())
+  method      String   @default("cash")
+  notes       String?
+  personId    String?
+  expenseId   String?
+
+  person      Person?  @relation(fields: [personId], references: [id])
+  expense     Expense? @relation(fields: [expenseId], references: [id])
+
+  createdAt   DateTime @default(now())
+}
+
+model Loan {
+  id             String   @id @default(cuid())
+  name           String
+  lender         String?
+  principal      Float
+  balance        Float
+  interestRate   Float
+  monthlyPayment Float
+  termMonths     Int
+  startDate      DateTime
+  totalPaid      Float    @default(0)
+  status         String   @default("active")
+  notes          String?
+
+  loanPayments   LoanPayment[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model LoanPayment {
+  id             String   @id @default(cuid())
+  loanId         String
+  amount         Float
+  principalPart  Float
+  interestPart   Float
+  remainingAfter Float
+  paymentDate    DateTime @default(now())
+  notes          String?
+
+  loan           Loan     @relation(fields: [loanId], references: [id])
+
+  createdAt      DateTime @default(now())
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
