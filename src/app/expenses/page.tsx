@@ -23,6 +23,7 @@ interface ExpenseItem {
   paidAmount: number | null; isRecurring: boolean; dueDay: number | null; notes: string | null
   person: { id: string; name: string } | null
   latestPaymentDate: string | null; totalPaidFromPayments: number
+  createdAt: string
 }
 
 const emptyForm = { name: '', amount: '', category: 'Other', personId: '', isRecurring: true, dueDay: '', notes: '' }
@@ -32,6 +33,7 @@ export default function ExpensesPage() {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
   const [statusFilter, setStatusFilter] = useState('')
+  const [tab, setTab] = useState<'recurring' | 'extra'>('recurring')
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -126,8 +128,8 @@ export default function ExpensesPage() {
       ) : (() => {
         const recurringItems: ExpenseItem[] = data.items.filter((i: ExpenseItem) => i.isRecurring)
         const extraItems: ExpenseItem[] = data.items.filter((i: ExpenseItem) => !i.isRecurring)
-        const recurringCategories: string[] = [...new Set(recurringItems.map((i: { category: string }) => i.category))].sort()
-        const extraCategories: string[] = [...new Set(extraItems.map((i: { category: string }) => i.category))].sort()
+        const activeItems = tab === 'recurring' ? recurringItems : extraItems
+        const activeCategories: string[] = [...new Set(activeItems.map((i: { category: string }) => i.category))].sort()
 
         const renderCategoryGroup = (category: string, catItems: ExpenseItem[]) => {
           const catTotal = catItems.reduce((s: number, i: { amount: number }) => s + i.amount, 0)
@@ -143,6 +145,7 @@ export default function ExpensesPage() {
                   const statusIcon = item.status === 'paid' ? '✓' : item.status === 'partial' ? '◐' : '○'
                   const statusColor = item.status === 'paid' ? 'text-tertiary border-tertiary' : item.status === 'partial' ? 'text-[#e65100] border-[#e65100]' : 'text-on-surface-variant border-outline'
                   const dateLabel = item.latestPaymentDate ? formatDate(item.latestPaymentDate) : (item.status === 'paid' ? 'Paid' : '')
+                  const itemDate = item.dueDay ? `Due: ${item.dueDay} ${monthNames[month - 1]}` : formatDate(item.createdAt)
                   return (
                     <div key={item.id} className="flex items-center justify-between bg-surface rounded-[12px] shadow-elevation-0 hover:shadow-elevation-1 px-4 py-3 transition-shadow min-h-[48px]">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -151,7 +154,7 @@ export default function ExpensesPage() {
                           aria-label={`Toggle status for ${item.name}`}>{statusIcon}</button>
                         <div className="min-w-0">
                           <Link href={`/expenses/${item.id}`} className="text-body-large text-on-surface hover:text-primary truncate block">{item.name}</Link>
-                          {item.person && <span className="text-body-small text-on-surface-variant">({item.person.name})</span>}
+                          <span className="text-label-small text-on-surface-variant">{itemDate}{item.person ? ` \u00b7 ${item.person.name}` : ''}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
@@ -174,35 +177,30 @@ export default function ExpensesPage() {
         }
 
         return (
-          <div className="space-y-8">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <h2 className="text-title-medium font-normal text-on-surface">Recurring Expenses</h2>
-                <span className="px-2.5 py-0.5 text-label-small bg-primary-container text-on-primary-container rounded-full">{recurringItems.length}</span>
-              </div>
-              {recurringItems.length === 0 ? (
-                <p className="text-body-medium text-on-surface-variant py-4">No recurring expenses this month</p>
-              ) : (
-                recurringCategories.map(cat => {
-                  const catItems = recurringItems.filter((i: { category: string }) => i.category === cat)
-                  if (catItems.length === 0) return null
-                  return renderCategoryGroup(cat, catItems)
-                })
-              )}
+          <div className="space-y-4">
+            <div className="flex gap-1 bg-surface-container-high rounded-[12px] p-1">
+              <button onClick={() => setTab('recurring')}
+                className={`flex-1 px-4 py-2.5 rounded-[8px] text-label-large font-medium transition-all ${
+                  tab === 'recurring' ? 'bg-surface text-primary shadow-elevation-1' : 'text-on-surface-variant hover:text-on-surface'
+                }`}>
+                Recurring ({recurringItems.length})
+              </button>
+              <button onClick={() => setTab('extra')}
+                className={`flex-1 px-4 py-2.5 rounded-[8px] text-label-large font-medium transition-all ${
+                  tab === 'extra' ? 'bg-surface text-primary shadow-elevation-1' : 'text-on-surface-variant hover:text-on-surface'
+                }`}>
+                Extra ({extraItems.length})
+              </button>
             </div>
 
-            {extraItems.length > 0 && (
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <h2 className="text-title-medium font-normal text-on-surface">Extra Expenses</h2>
-                  <span className="px-2.5 py-0.5 text-label-small bg-secondary-container text-on-secondary-container rounded-full">{extraItems.length}</span>
-                </div>
-                {extraCategories.map(cat => {
-                  const catItems = extraItems.filter((i: { category: string }) => i.category === cat)
-                  if (catItems.length === 0) return null
-                  return renderCategoryGroup(cat, catItems)
-                })}
-              </div>
+            {activeItems.length === 0 ? (
+              <p className="text-body-medium text-on-surface-variant py-6 text-center">{tab === 'recurring' ? 'No recurring expenses this month' : 'No extra expenses this month'}</p>
+            ) : (
+              activeCategories.map(cat => {
+                const catItems = activeItems.filter((i: { category: string }) => i.category === cat)
+                if (catItems.length === 0) return null
+                return renderCategoryGroup(cat, catItems)
+              })
             )}
           </div>
         )
