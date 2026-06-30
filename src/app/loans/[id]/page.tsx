@@ -109,11 +109,11 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
           Amortization Schedule<span className="text-label-large text-on-surface-variant">{showSched ? '▲ Hide' : '▼ Show'}</span>
         </button>
         {showSched && amortization && (
-          <div className="mt-4 max-h-96 overflow-y-auto overflow-x-auto -mx-3 px-3">
-            <table className="w-full text-body-medium min-w-[500px]">
-              <thead className="sticky top-0 bg-surface-container"><tr className="text-left text-on-surface-variant"><th className="py-3 px-3 font-medium w-10">#</th><th className="py-3 px-3 font-medium">Payment</th><th className="py-3 px-3 font-medium">Principal</th><th className="py-3 px-3 font-medium hidden sm:table-cell">Interest</th><th className="py-3 px-3 text-right font-medium">Balance</th></tr></thead>
+          <div className="mt-4 max-h-96 overflow-y-auto">
+            <table className="w-full text-body-small">
+              <thead className="sticky top-0 bg-surface-container"><tr className="text-left text-on-surface-variant"><th className="py-2 font-medium">#</th><th className="py-2 font-medium">Payment</th><th className="py-2 font-medium">Principal</th><th className="py-2 font-medium">Interest</th><th className="py-2 text-right font-medium">Balance</th></tr></thead>
               <tbody>{amortization.schedule.map((r: { month: number; payment: number; principalPart: number; interestPart: number; remainingBalance: number }) => (
-                <tr key={r.month} className="border-t border-outline-variant"><td className="py-2.5 px-3 text-on-surface-variant">{r.month}</td><td className="py-2.5 px-3 text-on-surface">{formatMMK(r.payment)}</td><td className="py-2.5 px-3 text-tertiary">{formatMMK(r.principalPart)}</td><td className="py-2.5 px-3 text-error hidden sm:table-cell">{formatMMK(r.interestPart)}</td><td className="py-2.5 px-3 text-right text-on-surface font-medium">{formatMMK(r.remainingBalance)}</td></tr>
+                <tr key={r.month} className="border-t border-outline-variant"><td className="py-1.5 text-on-surface-variant">{r.month}</td><td className="py-1.5 text-on-surface">{formatMMK(r.payment)}</td><td className="py-1.5 text-tertiary">{formatMMK(r.principalPart)}</td><td className="py-1.5 text-error">{formatMMK(r.interestPart)}</td><td className="py-1.5 text-right text-on-surface font-medium">{formatMMK(r.remainingBalance)}</td></tr>
               ))}</tbody>
             </table>
           </div>

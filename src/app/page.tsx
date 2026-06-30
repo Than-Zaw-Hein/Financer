@@ -70,12 +70,6 @@ export default function DashboardPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="bg-tertiary-container rounded-[12px] shadow-elevation-1 p-5">
-        <p className="text-label-medium text-on-tertiary-container">Cash Available Now</p>
-        <p className="text-headline-small font-normal text-on-tertiary-container mt-1">{formatMMK(data.availableCash)}</p>
-        <p className="text-label-small text-on-tertiary-container mt-0.5 opacity-80">Balance: {formatMMK(data.startingBalance)} · Received: {formatMMK(data.receivedIncome)} · Pending: {formatMMK(data.pendingIncome)}</p>
-      </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard label="Income" value={formatMMK(data.totalIncome)} bg="bg-primary-container" text="text-on-primary-container" />
         <SummaryCard label="Expenses" value={formatMMK(data.totalExpenses)} bg="bg-error-container" text="text-on-error-container" />

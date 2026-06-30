@@ -2,13 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  const now = new Date()
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-
   const loans = await prisma.loan.findMany({
     include: {
-      loanPayments: { orderBy: { paymentDate: 'desc' } }
+      loanPayments: { orderBy: { paymentDate: 'desc' }, take: 5 }
     },
     orderBy: { createdAt: 'desc' }
   })
@@ -18,11 +14,8 @@ export async function GET() {
     const progress = loan.principal > 0
       ? Math.round(((loan.principal - loan.balance) / loan.principal) * 100)
       : 0
-    const remainingMonths = Math.max(0, loan.termMonths - monthsPaid)
-    const currentMonthPaid = loan.loanPayments.some(p =>
-      p.paymentDate >= currentMonthStart && p.paymentDate < currentMonthEnd
-    )
-    return { ...loan, progress, remainingMonths, monthsPaid, currentMonthPaid }
+    const remainingMonths = loan.termMonths - monthsPaid
+    return { ...loan, progress, remainingMonths, monthsPaid }
   })
 
   return NextResponse.json(enriched)
