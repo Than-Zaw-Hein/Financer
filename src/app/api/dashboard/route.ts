@@ -36,6 +36,14 @@ export async function GET(request: NextRequest) {
   const totalLoanBalance = loans.reduce((s, l) => s + l.balance, 0)
   const totalLoanPayment = loans.reduce((s, l) => s + l.monthlyPayment, 0)
 
+  const startSetting = await prisma.setting.findUnique({ where: { key: 'starting_balance' } })
+  const startingBalance = parseFloat(startSetting?.value || '0')
+
+  const allIncomes = await prisma.income.findMany({ where: { month, year } })
+  const receivedIncome = allIncomes.reduce((s, i) => s + i.amount, 0)
+  const availableCash = startingBalance + receivedIncome - totalPaid
+  const pendingIncome = Math.max(0, totalIncome - receivedIncome)
+
   return NextResponse.json({
     month,
     year,
@@ -59,6 +67,10 @@ export async function GET(request: NextRequest) {
     paymentProgress: totalExpenses > 0
       ? Math.round((totalPaid / totalExpenses) * 100)
       : 0,
-    financialHealth: totalIncome >= totalExpenses ? 'healthy' : 'warning'
+    financialHealth: totalIncome >= totalExpenses ? 'healthy' : 'warning',
+    availableCash,
+    startingBalance,
+    receivedIncome,
+    pendingIncome,
   })
 }

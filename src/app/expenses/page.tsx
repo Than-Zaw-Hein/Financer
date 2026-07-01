@@ -166,6 +166,9 @@ export default function ExpensesPage() {
                           <span className={`text-label-large font-medium block ${item.status === 'paid' ? 'text-tertiary' : item.status === 'partial' ? 'text-[#e65100]' : 'text-error'}`}>
                             {formatMMK(item.amount)}
                           </span>
+                          <span className="text-label-small text-on-surface-variant block">
+                            Paid: {formatMMK(item.totalPaidFromPayments || 0)} · Remaining: {formatMMK(Math.max(0, item.amount - (item.totalPaidFromPayments || 0)))}
+                          </span>
                           {dateLabel && <span className="text-label-small text-on-surface-variant block">{dateLabel}</span>}
                         </div>
                         <button onClick={() => setQuickPay({ expenseId: item.id, name: item.name, amount: '', date: new Date().toISOString().split('T')[0] })} className="px-3 py-2 text-label-medium text-tertiary hover:bg-tertiary/8 rounded-[8px] transition-all min-h-[44px] min-w-[44px]" title="Quick pay" aria-label={`Quick pay ${item.name}`}>$</button>

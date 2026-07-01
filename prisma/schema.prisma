@@ -28,7 +28,7 @@ model Income {
   receivedDate DateTime @default(now())
   notes        String?
 
-  source       IncomeSource @relation(fields: [sourceId], references: [id])
+  source       IncomeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, month, year])
   createdAt    DateTime @default(now())

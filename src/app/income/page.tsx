@@ -27,6 +27,7 @@ export default function IncomePage() {
   const [recordForm, setRecordForm] = useState<{ sourceId: string; amount: string; month: number; year: number } | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [receivingIds, setReceivingIds] = useState<Set<string>>(new Set())
 
   const [recMonth, setRecMonth] = useState(now.getMonth() + 1)
   const [recYear, setRecYear] = useState(now.getFullYear())
@@ -58,6 +59,16 @@ export default function IncomePage() {
       body: JSON.stringify({ amount: parseFloat(recordForm.amount), month: recordForm.month, year: recordForm.year }),
     })
     await refetch() ; setRecordForm(null) ; setSaving(false)
+  }
+
+  async function handleQuickReceive(sourceId: string, amount: number) {
+    setReceivingIds(prev => new Set(prev).add(sourceId))
+    await fetch(`/api/income/${sourceId}/record`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, month: recMonth, year: recYear }),
+    })
+    await refetch()
+    setReceivingIds(prev => { const next = new Set(prev); next.delete(sourceId); return next })
   }
 
   if (isLoading) return <div className="max-w-3xl mx-auto space-y-6 py-4"><div className="h-8 w-40 bg-on-surface/10 rounded-full animate-pulse" /><RowSkeleton lines={3} /></div>
@@ -128,6 +139,20 @@ export default function IncomePage() {
                 </div>
               </div>
               <p className="text-title-large font-normal text-primary">{formatMMK(source.amount)}/mo</p>
+              {(() => {
+                const thisMonthRecorded = source.incomes.some(i => i.month === recMonth && i.year === recYear)
+                if (thisMonthRecorded) {
+                  return <span className="inline-flex items-center gap-1 mt-1 px-3 py-1 text-label-medium text-tertiary bg-tertiary-container rounded-full">Received ✓</span>
+                }
+                return (
+                  <button onClick={() => handleQuickReceive(source.id, source.amount)}
+                    disabled={receivingIds.has(source.id)}
+                    className="mt-2 px-4 py-2 text-label-medium text-on-primary bg-primary rounded-[20px] hover:brightness-90 disabled:opacity-50 transition-all min-h-[40px] flex items-center gap-1">
+                    {receivingIds.has(source.id) ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+                    Receive {formatMMK(source.amount)}
+                  </button>
+                )
+              })()}
 
               {source.incomes.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
