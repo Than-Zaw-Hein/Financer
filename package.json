@@ -1,17 +1,22 @@
 {
-  "name": "temp-next",
-  "version": "0.1.0",
+  "name": "my-finance",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002 -H 0.0.0.0",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3002 -H 0.0.0.0",
     "lint": "eslint"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
+    "@prisma/client": "^6",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "swr": "^2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -20,7 +25,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "prisma": "^6",
     "tailwindcss": "^4",
+    "tsx": "^4",
     "typescript": "^5"
   }
 }
