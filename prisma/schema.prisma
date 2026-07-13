@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -16,7 +16,7 @@ model IncomeSource {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  incomes   Income[]
+  incomes Income[]
 }
 
 model Income {
@@ -28,10 +28,10 @@ model Income {
   receivedDate DateTime @default(now())
   notes        String?
 
-  source       IncomeSource @relation(fields: [sourceId], references: [id])
+  source    IncomeSource @relation(fields: [sourceId], references: [id])
+  createdAt DateTime     @default(now())
 
   @@unique([sourceId, month, year])
-  createdAt    DateTime @default(now())
 }
 
 model Person {
@@ -43,9 +43,9 @@ model Person {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  balances  PersonBalance[]
-  payments  Payment[]
-  expenses  Expense[]       @relation("ExpensePerson")
+  balances PersonBalance[]
+  payments Payment[]
+  expenses Expense[]       @relation("ExpensePerson")
 }
 
 model PersonBalance {
@@ -57,30 +57,30 @@ model PersonBalance {
   totalPaid Float
   balance   Float
 
-  person    Person @relation(fields: [personId], references: [id])
+  person Person @relation(fields: [personId], references: [id])
 
   @@unique([personId, month, year])
 }
 
 model Expense {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   amount      Float
   category    String
-  status      String   @default("unpaid")
+  status      String  @default("unpaid")
   paidAmount  Float?
   month       Int
   year        Int
   dueDay      Int?
-  isRecurring Boolean  @default(true)
+  isRecurring Boolean @default(true)
   notes       String?
   personId    String?
 
-  person      Person?  @relation("ExpensePerson", fields: [personId], references: [id])
-  payments    Payment[]
+  person   Person?   @relation("ExpensePerson", fields: [personId], references: [id])
+  payments Payment[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Payment {
@@ -92,10 +92,10 @@ model Payment {
   personId    String?
   expenseId   String?
 
-  person      Person?  @relation(fields: [personId], references: [id])
-  expense     Expense? @relation(fields: [expenseId], references: [id])
+  person  Person?  @relation(fields: [personId], references: [id])
+  expense Expense? @relation(fields: [expenseId], references: [id])
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Loan {
@@ -112,10 +112,10 @@ model Loan {
   status         String   @default("active")
   notes          String?
 
-  loanPayments   LoanPayment[]
+  loanPayments LoanPayment[]
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model LoanPayment {
@@ -128,9 +128,9 @@ model LoanPayment {
   paymentDate    DateTime @default(now())
   notes          String?
 
-  loan           Loan     @relation(fields: [loanId], references: [id])
+  loan Loan @relation(fields: [loanId], references: [id])
 
-  createdAt      DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Setting {

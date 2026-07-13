@@ -6,13 +6,13 @@ Personal finance management app — track income, expenses, people, payments, an
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Database | SQLite via Prisma ORM |
-| Styling | Tailwind CSS v4 + Material Design 3 tokens |
-| Data Fetching | SWR |
-| Production | Node.js via `npm start` (PM2 unavailable on this Windows setup) |
+| Layer         | Technology                                                      |
+| ------------- | --------------------------------------------------------------- |
+| Framework     | Next.js 16 (App Router)                                         |
+| Database      | PostgreSQL via Prisma ORM                                       |
+| Styling       | Tailwind CSS v4 + Material Design 3 tokens                      |
+| Data Fetching | SWR                                                             |
+| Production    | Node.js via `npm start` (PM2 unavailable on this Windows setup) |
 
 ## What You Need
 
@@ -39,8 +39,10 @@ npm install
 Create `.env` in the project root:
 
 ```
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://<user>:<password>@<host>:5432/<database>?sslmode=require"
 ```
+
+Use a hosted PostgreSQL database such as Neon, Supabase, or Cloud SQL. SQLite will not work in a Firebase-style hosted environment.
 
 ### 4. Database Setup
 
@@ -49,7 +51,7 @@ npx prisma migrate dev --name init
 npx prisma db seed
 ```
 
-This creates the SQLite database with 27 sample expenses, 5 people, and a home loan for Than Zaw Hein.
+This creates the PostgreSQL database with 27 sample expenses, 5 people, and a home loan for Than Zaw Hein.
 
 ### 5. Run (Development)
 
@@ -131,11 +133,13 @@ Then restart the server (Ctrl+C the old one, then `npm start` again).
 For LAN access from other devices (phone, tablet):
 
 1. Ensure your Windows network profile is **Private**:
+
    ```powershell
    Get-NetConnectionProfile | select Name, NetworkCategory
    ```
 
 2. Allow port 3002 through Windows Firewall (run as Administrator):
+
    ```powershell
    New-NetFirewallRule -DisplayName "My Finance (3002)" -Direction Inbound -Protocol TCP -LocalPort 3002 -Action Allow
    ```
@@ -147,6 +151,7 @@ For LAN access from other devices (phone, tablet):
 ## Features
 
 ### Dashboard
+
 - **Cash Available Now** — Shows real liquid cash: `startingBalance + receivedIncome - paidExpenses`. Also shows pending (expected but not yet received) income.
 - **Summary Cards** — Income, Expenses, Surplus, Remaining Cash for the selected month.
 - **Expense Progress** — Progress bar showing % paid, with paid/unpaid/partial counts.
@@ -156,6 +161,7 @@ For LAN access from other devices (phone, tablet):
 - Month navigation (prev/next) with all data updating accordingly.
 
 ### Expenses
+
 - **Tabs** — Segmented M3 tabs to switch between **Recurring** (monthly) and **Extra** (one-time) expenses, each with item count.
 - **Status Sorting** — Within each category group, items are sorted: unpaid → partial → paid.
 - **Date Display** — Each item shows its due date (e.g., `Due: 28 Jun`) or created date. Person name shown after date.
@@ -166,18 +172,21 @@ For LAN access from other devices (phone, tablet):
 - **Status Filter** — Filter by All / Paid / Unpaid / Partial via M3 chips.
 
 ### Income
+
 - **Multiple Sources** — Track salary, freelance, business, and other income sources.
 - **"Receive" Button** — One-click button per source to mark the current month's income as received. Shows "Received ✓" when already done.
 - **Record History** — Detailed recording with month/year/amount. Use "Record" button for custom amounts or past months.
 - **Total Monthly Income** — Card showing combined expected income from all sources.
 
 ### People
+
 - **Contact Management** — Track people with name, nickname, relation, and notes.
 - **Balance Tracking** — To Pay / Paid / Remaining cards per person for the selected month.
 - **Quick Pay** — Record a payment to a person directly from the person's card.
 - **Person Detail** — Click a person to see full payment history and balance details.
 
 ### Payments
+
 - **Date + Category Grouping** — Payments grouped first by date then by expense category within each date.
 - **Payment History** — Each payment shows expense name, person, method, and amount. M3 card layout.
 - **Filter Modal** — Filter by date (exact day) and/or category. Active filter count badge on the Filter button.
@@ -185,6 +194,7 @@ For LAN access from other devices (phone, tablet):
 - **Inline Expense Creation** — Create a new expense directly from the payment recording form.
 
 ### Loans
+
 - **"This Month" Payment Status** — Each loan card shows whether the current month's payment is **Paid** (green badge) or **Unpaid** (red badge).
 - **"Pay This Month" Button** — One-click button to record the standard monthly payment immediately (uses the loan's `monthlyPayment` amount).
 - **"Undo Pay" Button** — Accidentally paid? Click Undo to reverse the most recent payment (restores balance).
@@ -195,17 +205,20 @@ For LAN access from other devices (phone, tablet):
 - **Summary Cards** — Total balance and total monthly payment across all loans.
 
 ### Cash Flow
+
 - **Daily Running Balance** — Shows each day's transactions and the resulting balance.
 - **Starting Balance** — Uses `starting_balance` from Settings as the initial value.
 - **Income Timing Awareness** — Income contribution to the running balance is based on received date, not expected date.
 - **Loan Payment Exclusion** — Already-paid loan payments are excluded from current month's expense total.
 
 ### Settings
+
 - **Currency** — Set display currency (default: MMK).
 - **Starting Balance** — Set the opening cash balance used by Cash Flow and Dashboard.
 - **Default Income** — Set default income source for recording.
 
 ### Other
+
 - **Dark Mode** — Full M3 dark theme support (follows system preference).
 - **Mobile Responsive** — Sidebar collapses with hamburger toggle on small screens.
 - **M3 Design System** — 4 tonal palettes (primary, secondary, tertiary, error), typography scale, shape tokens, elevation shadows.
@@ -214,13 +227,13 @@ For LAN access from other devices (phone, tablet):
 
 ## Database Management
 
-| Command | What it does |
-|---|---|
-| `npx prisma db seed` | Seed with sample data (27 expenses, 5 people, 1 home loan) |
-| `npx prisma migrate dev --name <name>` | Create a new migration |
-| `npx prisma studio` | Open visual database browser at http://localhost:5555 |
-| `npx tsx prisma/cleanup.ts` | Clear ALL data EXCEPT loans and loan payments (preserves home loan records) |
-| `npx tsx prisma/set-balance.ts` | Set or update the `starting_balance` setting used by Cash Flow and Dashboard |
+| Command                                | What it does                                                                 |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| `npx prisma db seed`                   | Seed with sample data (27 expenses, 5 people, 1 home loan)                   |
+| `npx prisma migrate dev --name <name>` | Create a new migration                                                       |
+| `npx prisma studio`                    | Open visual database browser at http://localhost:5555                        |
+| `npx tsx prisma/cleanup.ts`            | Clear ALL data EXCEPT loans and loan payments (preserves home loan records)  |
+| `npx tsx prisma/set-balance.ts`        | Set or update the `starting_balance` setting used by Cash Flow and Dashboard |
 
 ---
 
@@ -303,37 +316,37 @@ Financer-webapp/
 
 ## API Routes
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/dashboard` | Dashboard summary including income, expenses, loans, cash available |
-| GET/POST | `/api/income` | List all / Create income source |
-| GET/PUT/DELETE | `/api/income/[id]` | Single income source |
-| POST | `/api/income/[id]/record` | Record/receive income for a month |
-| GET/POST | `/api/expenses` | List (month/year) / Create expense |
-| GET/PUT/DELETE | `/api/expenses/[id]` | Single expense (status update, edit, delete) |
-| GET/POST | `/api/people` | List / Create person |
-| GET/PUT/DELETE | `/api/people/[id]` | Single person |
-| GET/POST | `/api/payments` | List (month/year) / Create payment |
-| GET/PUT/DELETE | `/api/payments/[id]` | Single payment |
-| GET/POST | `/api/loans` | List (with monthsPaid, progress, currentMonthPaid) / Create loan |
-| GET/PUT/DELETE | `/api/loans/[id]` | Single loan (edit, delete) |
-| POST | `/api/loans/[id]/pay` | Record a loan payment (auto-calculates principal/interest) |
-| DELETE | `/api/loans/[id]/pay/undo` | Undo the most recent loan payment |
-| GET | `/api/loans/[id]/amortization` | Full amortization schedule (144 months) |
-| GET | `/api/loans/compare` | Compare multiple loans with fixed monthly payment |
-| GET | `/api/cashflow` | Daily cash flow with running balance |
-| GET/PUT | `/api/settings` | Read/update app settings |
+| Method         | Endpoint                       | Description                                                         |
+| -------------- | ------------------------------ | ------------------------------------------------------------------- |
+| GET            | `/api/dashboard`               | Dashboard summary including income, expenses, loans, cash available |
+| GET/POST       | `/api/income`                  | List all / Create income source                                     |
+| GET/PUT/DELETE | `/api/income/[id]`             | Single income source                                                |
+| POST           | `/api/income/[id]/record`      | Record/receive income for a month                                   |
+| GET/POST       | `/api/expenses`                | List (month/year) / Create expense                                  |
+| GET/PUT/DELETE | `/api/expenses/[id]`           | Single expense (status update, edit, delete)                        |
+| GET/POST       | `/api/people`                  | List / Create person                                                |
+| GET/PUT/DELETE | `/api/people/[id]`             | Single person                                                       |
+| GET/POST       | `/api/payments`                | List (month/year) / Create payment                                  |
+| GET/PUT/DELETE | `/api/payments/[id]`           | Single payment                                                      |
+| GET/POST       | `/api/loans`                   | List (with monthsPaid, progress, currentMonthPaid) / Create loan    |
+| GET/PUT/DELETE | `/api/loans/[id]`              | Single loan (edit, delete)                                          |
+| POST           | `/api/loans/[id]/pay`          | Record a loan payment (auto-calculates principal/interest)          |
+| DELETE         | `/api/loans/[id]/pay/undo`     | Undo the most recent loan payment                                   |
+| GET            | `/api/loans/[id]/amortization` | Full amortization schedule (144 months)                             |
+| GET            | `/api/loans/compare`           | Compare multiple loans with fixed monthly payment                   |
+| GET            | `/api/cashflow`                | Daily cash flow with running balance                                |
+| GET/PUT        | `/api/settings`                | Read/update app settings                                            |
 
 ## PM2 Reference (Optional)
 
 PM2 is installed globally but currently **broken on this Windows setup** due to a named pipe permission issue (`EPERM \\.\pipe\rpc.sock`). Use `npm start` instead.
 
-| Command | What it does |
-|---|---|
-| `pm2 status` | Check if the app is running |
-| `pm2 logs my-finance` | Watch live logs |
-| `pm2 restart my-finance` | Restart the app |
-| `pm2 stop my-finance` | Stop the app |
-| `pm2 delete my-finance` | Remove app from PM2 |
+| Command                  | What it does                |
+| ------------------------ | --------------------------- |
+| `pm2 status`             | Check if the app is running |
+| `pm2 logs my-finance`    | Watch live logs             |
+| `pm2 restart my-finance` | Restart the app             |
+| `pm2 stop my-finance`    | Stop the app                |
+| `pm2 delete my-finance`  | Remove app from PM2         |
 
 To fix PM2 (requires reboot or reinstall): `npm uninstall -g pm2 && npm install -g pm2`
