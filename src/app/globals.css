@@ -130,8 +130,8 @@
   --color-outline: var(--md-outline);
   --color-outline-variant: var(--md-outline-variant);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Consolas', 'Cascadia Code', monospace;
 
   --shadow-elevation-0: var(--md-elevation-0);
   --shadow-elevation-1: var(--md-elevation-1);

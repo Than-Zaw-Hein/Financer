@@ -35,11 +35,14 @@ export default function DashboardPage() {
     </div>
   )
 
-  if (!data || data.expenseCount === 0) return (
+  if (!data) return (
     <div className="max-w-5xl mx-auto py-4">
       <EmptyState title="No data yet" description="Add income sources and expenses to see your dashboard" action="Go to Expenses" onAction={() => window.location.href = '/expenses'} />
     </div>
   )
+
+  const hasExpenses = data.expenseCount > 0
+  const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear()
 
   const health = data.financialHealth === 'healthy' ? data.paymentProgress >= 80 ? 'healthy' : 'warning'
     : data.surplus < data.totalExpenses * -0.5 ? 'danger' : 'warning'
@@ -68,6 +71,15 @@ export default function DashboardPage() {
         </div>
         <StatusBadge status={data.financialHealth === 'healthy' ? 'paid' : 'unpaid'} />
       </div>
+
+      {!hasExpenses && (
+        <div className="bg-surface rounded-[12px] shadow-elevation-1 p-4 text-center">
+          <p className="text-body-medium text-on-surface-variant">No expenses for {monthNames[month - 1]} {year}</p>
+          {isCurrentMonth && (
+            <button onClick={() => window.location.href = '/expenses'} className="mt-2 px-4 py-2 text-label-medium text-on-primary bg-primary rounded-[20px] hover:brightness-90 transition-all min-h-[40px]">Add Expenses</button>
+          )}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="bg-tertiary-container rounded-[12px] shadow-elevation-1 p-5">
@@ -135,7 +147,7 @@ export default function DashboardPage() {
 function SummaryCard({ label, value, bg, text }: { label: string; value: string; bg: string; text: string }) {
   return (
     <div className={`rounded-[12px] shadow-elevation-1 p-5 ${bg}`}>
-      <p className="text-label-medium opacity-80mb-1">{label}</p>
+      <p className="text-label-medium opacity-80 mb-1">{label}</p>
       <p className={`text-title-large font-normal ${text}`}>{value}</p>
     </div>
   )
