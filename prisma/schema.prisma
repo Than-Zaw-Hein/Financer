@@ -28,7 +28,7 @@ model Income {
   receivedDate DateTime @default(now())
   notes        String?
 
-  source    IncomeSource @relation(fields: [sourceId], references: [id])
+  source    IncomeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   createdAt DateTime     @default(now())
 
   @@unique([sourceId, month, year])
@@ -57,7 +57,7 @@ model PersonBalance {
   totalPaid Float
   balance   Float
 
-  person Person @relation(fields: [personId], references: [id])
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@unique([personId, month, year])
 }
@@ -76,7 +76,7 @@ model Expense {
   notes       String?
   personId    String?
 
-  person   Person?   @relation("ExpensePerson", fields: [personId], references: [id])
+  person   Person?   @relation("ExpensePerson", fields: [personId], references: [id], onDelete: SetNull)
   payments Payment[]
 
   createdAt DateTime @default(now())
@@ -92,8 +92,8 @@ model Payment {
   personId    String?
   expenseId   String?
 
-  person  Person?  @relation(fields: [personId], references: [id])
-  expense Expense? @relation(fields: [expenseId], references: [id])
+  person  Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  expense Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 }
@@ -128,7 +128,7 @@ model LoanPayment {
   paymentDate    DateTime @default(now())
   notes          String?
 
-  loan Loan @relation(fields: [loanId], references: [id])
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 }

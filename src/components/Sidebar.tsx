@@ -7,7 +7,7 @@ import { useState } from 'react'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-const navItems = [
+const navItems: { href: string; label: string; icon: string; aria: string; sub?: boolean }[] = [
   { href: '/', label: 'Dashboard', icon: '📊', aria: 'Dashboard' },
   { href: '/income', label: 'Income', icon: '💰', aria: 'Income' },
   { href: '/expenses', label: 'Expenses', icon: '💸', aria: 'Expenses' },
