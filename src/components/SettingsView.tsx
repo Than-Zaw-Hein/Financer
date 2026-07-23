@@ -249,7 +249,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="text-[11px] text-slate-400 pt-1 border-t border-slate-900">
-                Active server datasets updated for current month ({lastSyncResult.serverData.month}/{lastSyncResult.serverData.year}).
+                Active server datasets synced across all months (All-Time Sync). Total: {lastSyncResult.serverData.expenses.length} Expenses, {lastSyncResult.serverData.incomes.length} Incomes on server.
               </div>
             </div>
           )}

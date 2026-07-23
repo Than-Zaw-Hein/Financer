@@ -56,8 +56,7 @@ function getActiveTrackedMonths(selectedMonth: number, selectedYear: number): Se
 }
 
 const app = express();
-
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3002;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 
@@ -1009,8 +1008,11 @@ app.get('/api/sync', (req: Request, res: Response) => {
   const currentYear = new Date().getFullYear();
 
   const activeCategories = store.categories.filter((c) => !c.isDeleted);
-  const activeExpenses = store.transactions.filter((t) => !t.isDeleted && t.month === currentMonth && t.year === currentYear);
-  const activeIncomes = store.incomes.filter((i) => !i.isDeleted && i.month === currentMonth && i.year === currentYear);
+  const activeExpenses = store.transactions.filter((t) => !t.isDeleted).map((t) => ({
+    ...t,
+    category: store.categories.find((c) => c.id === t.categoryId) || null,
+  }));
+  const activeIncomes = store.incomes.filter((i) => !i.isDeleted);
 
   res.json({
     categories: activeCategories,
@@ -1205,8 +1207,8 @@ app.post('/api/sync', async (req: Request, res: Response) => {
   }
 
   const activeCategories = store.categories.filter((c) => !c.isDeleted);
-  const activeExpenses = store.transactions.filter((t) => !t.isDeleted && t.month === currentMonth && t.year === currentYear);
-  const activeIncomes = store.incomes.filter((i) => !i.isDeleted && i.month === currentMonth && i.year === currentYear);
+  const activeExpenses = store.transactions.filter((t) => !t.isDeleted);
+  const activeIncomes = store.incomes.filter((i) => !i.isDeleted);
 
   res.json({
     synced: {
