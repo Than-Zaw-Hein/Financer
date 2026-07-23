@@ -13,7 +13,7 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 interface IncomeSource {
   id: string; name: string; amount: number; type: string
-  incomes: { amount: number; month: number; year: number }[]
+  incomes: { amount: number; month: number; year: number; notes?: string | null }[]
 }
 
 const emptyForm = { name: '', amount: '', type: 'salary' }
@@ -142,7 +142,7 @@ export default function IncomePage() {
               {(() => {
                 const thisMonthRecorded = source.incomes.some(i => i.month === recMonth && i.year === recYear)
                 if (thisMonthRecorded) {
-                  return <span className="inline-flex items-center gap-1 mt-1 px-3 py-1 text-label-medium text-tertiary bg-tertiary-container rounded-full">Received ✓</span>
+                  return <span className="inline-flex items-center gap-1 mt-1 px-3 py-1 text-label-medium text-tertiary bg-tertiary-container rounded-full">Already received for this month</span>
                 }
                 return (
                   <button onClick={() => handleQuickReceive(source.id, source.amount)}
@@ -155,15 +155,25 @@ export default function IncomePage() {
               })()}
 
               {source.incomes.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {source.incomes.slice(0, 3).map((inc, i) => (
-                    <span key={i} className="text-label-medium text-on-surface-variant bg-surface-container rounded-[8px] px-3 py-1">{formatMMK(inc.amount)} ({monthNames[inc.month-1]} {inc.year})</span>
+                <div className="mt-2 space-y-1">
+                  {source.incomes.slice(0, 10).map((inc, i) => (
+                    <div key={i} className="flex items-center justify-between px-1">
+                      <span className="text-body-small text-on-surface-variant">{inc.notes || source.name} · {monthNames[inc.month - 1]} {inc.year}</span>
+                      <span className="text-label-small font-medium text-tertiary">{formatMMK(inc.amount)}</span>
+                    </div>
                   ))}
                 </div>
               )}
 
               {recordForm?.sourceId === source.id && (
                 <div className="mt-4 p-4 bg-surface-container rounded-[12px] space-y-3">
+                  {(() => {
+                    const monthExists = source.incomes.some(i => i.month === recordForm.month && i.year === recordForm.year)
+                    if (monthExists) {
+                      return <p className="text-label-medium text-[#e65100] bg-[#fff3e0] p-2 rounded-[8px]">A record already exists for {monthNames[recordForm.month - 1]} {recordForm.year}. Recording will update it.</p>
+                    }
+                    return null
+                  })()}
                   <div className="flex gap-3 items-center">
                     <select className="border border-outline-variant rounded-[8px] px-3 py-2 text-body-medium bg-surface" value={recordForm.month} onChange={e => setRecordForm({ ...recordForm, month: parseInt(e.target.value) })}>
                       {Array.from({ length: 12 }, (_, i) => <option key={i+1} value={i+1}>{monthNames[i]}</option>)}
@@ -175,12 +185,33 @@ export default function IncomePage() {
                     {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                     Record Payment
                   </button>
-                </div>
-              )}
-            </div>
+        </div>
+      )}
+
+    </div>
           ))}
         </div>
       )}
+
+      {data && data.sources && data.sources.reduce((count: number, s: IncomeSource) => count + s.incomes.length, 0) > 0 && (
+        <div>
+          <h2 className="text-title-medium font-normal text-on-surface mb-3">Income Receipts</h2>
+          <div className="space-y-1.5">
+            {data.sources.flatMap((s: IncomeSource) =>
+              s.incomes.map((inc) => ({ ...inc, sourceName: s.name }))
+            ).sort((a: { year: number; month: number }, b: { year: number; month: number }) => b.year - a.year || b.month - a.month).map((inc: { amount: number; notes?: string | null; sourceName: string; month: number; year: number }, i: number) => (
+              <div key={i} className="flex items-center justify-between bg-surface rounded-[12px] shadow-elevation-0 hover:shadow-elevation-1 px-4 py-3 transition-shadow min-h-[48px]">
+                <div className="min-w-0 flex-1">
+                  <span className="text-body-large text-on-surface truncate block">{inc.notes || inc.sourceName}</span>
+                  <span className="text-label-small text-on-surface-variant">{monthNames[inc.month - 1]} {inc.year}</span>
+                </div>
+                <span className="text-label-large font-medium text-tertiary">{formatMMK(inc.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

@@ -6,12 +6,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const expense = await prisma.expense.findUnique({
+  const item = await prisma.transaction.findUnique({
     where: { id },
-    include: { person: true, payments: { include: { person: true }, orderBy: { paymentDate: 'desc' } } }
+    include: { category: true }
   })
-  if (!expense) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json(expense)
+  if (!item) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  return NextResponse.json(item)
 }
 
 export async function PUT(
@@ -20,23 +20,20 @@ export async function PUT(
 ) {
   const { id } = await params
   const body = await request.json()
-  const expense = await prisma.expense.update({
+  const item = await prisma.transaction.update({
     where: { id },
     data: {
-      name: body.name,
       amount: body.amount,
-      category: body.category,
-      status: body.status,
-      paidAmount: body.paidAmount,
+      categoryId: body.categoryId || null,
+      name: body.name || null,
+      date: body.date ? new Date(body.date) : undefined,
+      method: body.method,
+      notes: body.notes,
       month: body.month,
       year: body.year,
-      dueDay: body.dueDay,
-      isRecurring: body.isRecurring,
-      notes: body.notes,
-      personId: body.personId,
     }
   })
-  return NextResponse.json(expense)
+  return NextResponse.json(item)
 }
 
 export async function DELETE(
@@ -44,6 +41,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  await prisma.expense.delete({ where: { id } })
+  await prisma.transaction.update({ where: { id }, data: { isDeleted: true } })
   return NextResponse.json({ success: true })
 }

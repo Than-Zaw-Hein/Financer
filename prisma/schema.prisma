@@ -27,6 +27,9 @@ model Income {
   year         Int
   receivedDate DateTime @default(now())
   notes        String?
+  uuid         String?  @unique  // mobile-device UUID for dedup
+  isDeleted    Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
 
   source    IncomeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   createdAt DateTime     @default(now())
@@ -34,68 +37,39 @@ model Income {
   @@unique([sourceId, month, year])
 }
 
-model Person {
-  id        String   @id @default(cuid())
-  name      String
-  nickname  String?
-  relation  String?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  balances PersonBalance[]
-  payments Payment[]
-  expenses Expense[]       @relation("ExpensePerson")
+model Category {
+  id            String       @id @default(cuid())
+  name          String       @unique
+  icon          String       @default("📌")
+  color         String       @default("#3867a0")
+  uuid          String?      @unique  // mobile-device UUID for dedup
+  isPlanBudget  Boolean      @default(false)
+  budgetAmount  Float?
+  isDeleted     Boolean      @default(false)
+  transactions  Transaction[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
-model PersonBalance {
-  id        String @id @default(cuid())
-  personId  String
-  month     Int
-  year      Int
-  totalOwed Float
-  totalPaid Float
-  balance   Float
+model Transaction {
+  id         String    @id @default(cuid())
+  amount     Float
+  type       String    @default("EXPENSE")  // "EXPENSE" | "INCOME"
+  categoryId String?
+  name       String?                        // display name from category
+  date       DateTime  @default(now())
+  method     String?   @default("cash")
+  notes      String?
+  month      Int
+  year       Int
+  uuid       String?   @unique  // mobile-device UUID for dedup
+  isDeleted  Boolean   @default(false)
+  updatedAt  DateTime  @updatedAt
 
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
 
-  @@unique([personId, month, year])
-}
-
-model Expense {
-  id          String  @id @default(cuid())
-  name        String
-  amount      Float
-  category    String
-  status      String  @default("unpaid")
-  paidAmount  Float?
-  month       Int
-  year        Int
-  dueDay      Int?
-  isRecurring Boolean @default(true)
-  notes       String?
-  personId    String?
-
-  person   Person?   @relation("ExpensePerson", fields: [personId], references: [id], onDelete: SetNull)
-  payments Payment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Payment {
-  id          String   @id @default(cuid())
-  amount      Float
-  paymentDate DateTime @default(now())
-  method      String   @default("cash")
-  notes       String?
-  personId    String?
-  expenseId   String?
-
-  person  Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
-  expense Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
+  @@map("transactions")
 }
 
 model Loan {

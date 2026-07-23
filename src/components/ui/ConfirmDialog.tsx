@@ -10,7 +10,7 @@ interface ConfirmDialogProps {
 
 export default function ConfirmDialog({ open, onCancel, onConfirm, message, confirmLabel = 'Delete' }: ConfirmDialogProps) {
   const handleBackdrop = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onCancel()
+    if (e.target === e.currentTarget) {}
   }
 
   if (!open) return null

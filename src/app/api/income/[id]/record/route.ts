@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(
@@ -16,13 +17,15 @@ export async function POST(
         year: body.year || new Date().getFullYear(),
       }
     },
-    update: { amount: body.amount, receivedDate: new Date(body.receivedDate || Date.now()) },
+    update: { amount: body.amount, receivedDate: new Date(body.receivedDate || Date.now()), notes: body.notes || null, uuid: randomUUID() },
     create: {
       sourceId: id,
       amount: body.amount,
       month: body.month || new Date().getMonth() + 1,
       year: body.year || new Date().getFullYear(),
       receivedDate: new Date(body.receivedDate || Date.now()),
+      notes: body.notes || null,
+      uuid: randomUUID(),
     }
   })
 

@@ -6,7 +6,6 @@ import { formatMMK } from '@/lib/format'
 import { CardSkeleton } from '@/components/ui/LoadingSkeleton'
 import ErrorState from '@/components/ui/ErrorState'
 import EmptyState from '@/components/ui/EmptyState'
-import ProgressBar from '@/components/ui/ProgressBar'
 import StatusBadge from '@/components/ui/StatusBadge'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
@@ -41,10 +40,7 @@ export default function DashboardPage() {
     </div>
   )
 
-  const hasExpenses = data.expenseCount > 0
-  const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear()
-
-  const health = data.financialHealth === 'healthy' ? data.paymentProgress >= 80 ? 'healthy' : 'warning'
+  const health = data.financialHealth === 'healthy' ? 'healthy'
     : data.surplus < data.totalExpenses * -0.5 ? 'danger' : 'warning'
 
   const healthStyles: Record<string, string> = {
@@ -72,15 +68,6 @@ export default function DashboardPage() {
         <StatusBadge status={data.financialHealth === 'healthy' ? 'paid' : 'unpaid'} />
       </div>
 
-      {!hasExpenses && (
-        <div className="bg-surface rounded-[12px] shadow-elevation-1 p-4 text-center">
-          <p className="text-body-medium text-on-surface-variant">No expenses for {monthNames[month - 1]} {year}</p>
-          {isCurrentMonth && (
-            <button onClick={() => window.location.href = '/expenses'} className="mt-2 px-4 py-2 text-label-medium text-on-primary bg-primary rounded-[20px] hover:brightness-90 transition-all min-h-[40px]">Add Expenses</button>
-          )}
-        </div>
-      )}
-
       {/* Summary Cards */}
       <div className="bg-tertiary-container rounded-[12px] shadow-elevation-1 p-5">
         <p className="text-label-medium text-on-tertiary-container">Cash Available Now</p>
@@ -88,23 +75,13 @@ export default function DashboardPage() {
         <p className="text-label-small text-on-tertiary-container mt-0.5 opacity-80">Balance: {formatMMK(data.startingBalance)} · Received: {formatMMK(data.receivedIncome)} · Pending: {formatMMK(data.pendingIncome)}</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <SummaryCard label="Income" value={formatMMK(data.totalIncome)} bg="bg-primary-container" text="text-on-primary-container" />
         <SummaryCard label="Expenses" value={formatMMK(data.totalExpenses)} bg="bg-error-container" text="text-on-error-container" />
         <SummaryCard label="Surplus" value={formatMMK(data.surplus)} bg={data.surplus >= 0 ? 'bg-tertiary-container' : 'bg-error-container'} text={data.surplus >= 0 ? 'text-on-tertiary-container' : 'text-on-error-container'} />
-        <SummaryCard label="Remaining Cash" value={formatMMK(data.remainingCash)} bg="bg-secondary-container" text="text-on-secondary-container" />
       </div>
 
       {/* Expense Progress */}
-      <div className="bg-surface rounded-[12px] shadow-elevation-1 p-6">
-        <h2 className="text-title-medium font-normal text-on-surface mb-4">Expense Progress</h2>
-        <ProgressBar
-          value={data.paymentProgress}
-          label={`${data.paymentProgress}%`}
-          sublabel={`${data.paidCount} paid / ${data.unpaidCount} unpaid / ${data.partialCount} partial`}
-          color={data.paymentProgress >= 80 ? 'tertiary' : data.paymentProgress >= 40 ? 'primary' : 'error'}
-        />
-      </div>
 
       {/* Income Sources + Loans */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

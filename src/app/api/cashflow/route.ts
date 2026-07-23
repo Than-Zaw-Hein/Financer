@@ -12,15 +12,10 @@ export async function GET(request: NextRequest) {
   const incomeSources = await prisma.incomeSource.findMany()
   const monthlyIncome = incomeSources.reduce((s, src) => s + src.amount, 0)
 
-  const expenses = await prisma.expense.findMany({
-    where: { isRecurring: true, month: currentMonth, year: currentYear }
+  const currentTxns = await prisma.transaction.findMany({
+    where: { month: currentMonth, year: currentYear, type: 'EXPENSE' }
   })
-  const recurringTotal = expenses.reduce((s, e) => s + e.amount, 0)
-
-  const unpaidExpenses = await prisma.expense.findMany({
-    where: { month: currentMonth, year: currentYear, status: { in: ['unpaid', 'partial'] } }
-  })
-  const unpaidTotal = unpaidExpenses.reduce((s, e) => s + e.amount, 0)
+  const monthExpenseTotal = currentTxns.reduce((s, t) => s + t.amount, 0)
 
   const loans = await prisma.loan.findMany({
     where: { status: 'active' },
@@ -30,15 +25,15 @@ export async function GET(request: NextRequest) {
   const loanMonthlyTotal = loans.reduce((s, l) => s + l.monthlyPayment, 0)
 
   const currentMonthLoanDue = loans.reduce((s, loan) => {
-    const alreadyPaidThisMonth = loan.loanPayments.some(
+    const alreadyPaid = loan.loanPayments.some(
       p => new Date(p.paymentDate).getMonth() + 1 === currentMonth
         && new Date(p.paymentDate).getFullYear() === currentYear
     )
-    return alreadyPaidThisMonth ? s : s + loan.monthlyPayment
+    return alreadyPaid ? s : s + loan.monthlyPayment
   }, 0)
 
-  const startingBalance = await prisma.setting.findUnique({ where: { key: 'starting_balance' } })
-  let runningBalance = parseInt(startingBalance?.value || '0')
+  const startSetting = await prisma.setting.findUnique({ where: { key: 'starting_balance' } })
+  let runningBalance = parseInt(startSetting?.value || '0')
 
   const projection = []
 
@@ -47,18 +42,12 @@ export async function GET(request: NextRequest) {
     let y = currentYear
     if (m > 12) { m -= 12; y += 1 }
 
-    let monthExpenses = loanMonthlyTotal
-
-    if (i === 0) {
-      monthExpenses = currentMonthLoanDue + unpaidTotal
-    }
-
+    const monthExpenses = i === 0 ? currentMonthLoanDue + monthExpenseTotal : loanMonthlyTotal
     const netCash = monthlyIncome - monthExpenses
     runningBalance += netCash
 
     projection.push({
-      month: m,
-      year: y,
+      month: m, year: y,
       label: `${m}/${y}`,
       income: monthlyIncome,
       expenses: monthExpenses,
@@ -69,11 +58,10 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     monthlyIncome,
-    recurringExpenses: recurringTotal,
-    loanPayments: currentMonthLoanDue,
-    totalMonthlyOutgoing: currentMonthLoanDue + unpaidTotal,
-    currentUnpaid: unpaidTotal,
-    startingBalance: parseInt(startingBalance?.value || '0'),
+    totalExpensesThisMonth: monthExpenseTotal,
+    loanPaymentsDue: currentMonthLoanDue,
+    totalMonthlyOutgoing: currentMonthLoanDue + monthExpenseTotal,
+    startingBalance: parseInt(startSetting?.value || '0'),
     projection
   })
 }
