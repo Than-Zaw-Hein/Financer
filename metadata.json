@@ -1,0 +1,6 @@
+{
+  "name": "My Finance",
+  "description": "Personal finance management application with MMK currency tracking for income, expenses, category budgets, loans, and cash flow.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
