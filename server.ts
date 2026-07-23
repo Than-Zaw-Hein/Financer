@@ -56,7 +56,8 @@ function getActiveTrackedMonths(selectedMonth: number, selectedYear: number): Se
 }
 
 const app = express();
-const PORT = 3002;
+
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3002;
 
 app.use(express.json());
 
