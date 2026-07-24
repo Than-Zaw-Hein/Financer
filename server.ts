@@ -56,7 +56,7 @@ function getActiveTrackedMonths(selectedMonth: number, selectedYear: number): Se
 }
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const rawPort = process.env.PORT || 3000;
 
 app.use(express.json());
 
@@ -1438,7 +1438,11 @@ app.post('/api/seed/reset', async (req: Request, res: Response) => {
 // Vite Middleware for development / static serving for production
 async function startServer() {
   // Initialize PostgreSQL DB connection and seed/load dataset
-  store = await initDb();
+  try {
+    store = await initDb();
+  } catch (err) {
+    console.error('Failed to initialize database store:', err);
+  }
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -1447,16 +1451,35 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // In production (e.g. IIS / Cloud Run), determine static dist folder relative to file execution directory
+    const distPath = path.resolve(__dirname);
+    const parentDistPath = path.resolve(__dirname, 'dist');
+    
+    // Check if index.html is directly inside __dirname or in __dirname/dist or process.cwd()/dist
+    let finalDistPath = distPath;
+    if (path.basename(__dirname) !== 'dist' && require('fs').existsSync(parentDistPath)) {
+      finalDistPath = parentDistPath;
+    } else if (!require('fs').existsSync(path.join(finalDistPath, 'index.html'))) {
+      finalDistPath = path.join(process.cwd(), 'dist');
+    }
+
+    app.use(express.static(finalDistPath));
     app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.sendFile(path.join(finalDistPath, 'index.html'));
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`My Finance Server running on http://localhost:${PORT}`);
-  });
+  // Handle iisnode named pipes (e.g. \\.\pipe\...) vs TCP numeric ports
+  if (typeof rawPort === 'string' && (rawPort.startsWith('\\\\.\\pipe\\') || isNaN(Number(rawPort)))) {
+    app.listen(rawPort, () => {
+      console.log(`My Finance Server running on named pipe: ${rawPort}`);
+    });
+  } else {
+    const portNumber = Number(rawPort);
+    app.listen(portNumber, '0.0.0.0', () => {
+      console.log(`My Finance Server running on http://localhost:${portNumber}`);
+    });
+  }
 }
 
 startServer();
