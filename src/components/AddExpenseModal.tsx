@@ -19,6 +19,8 @@ interface AddExpenseModalProps {
     method: string;
     notes: string;
   }) => Promise<void> | void;
+  currentMonth?: number;
+  currentYear?: number;
 }
 
 export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
@@ -30,13 +32,15 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   presetCategory,
   presetAmount,
   onSave,
+  currentMonth,
+  currentYear,
 }) => {
   const [amount, setAmount] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [categoryId, setCategoryId] = useState<string>('');
   const [method, setMethod] = useState<string>('cash');
   const [notes, setNotes] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   useEffect(() => {
@@ -53,9 +57,22 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       setCategoryId(presetCategory ? presetCategory.id : (categories[0]?.id || ''));
       setMethod('cash');
       setNotes('');
-      setDate(new Date().toISOString().split('T')[0]);
+    
+      // Intelligently default date to the viewed month/year
+      const today = new Date();
+      const todayMonth = today.getMonth() + 1;
+      const todayYear = today.getFullYear();
+
+      if (currentMonth && currentYear && (currentMonth !== todayMonth || currentYear !== todayYear)) {
+        // If viewing a different month, default to the 1st day of that month
+        const mm = String(currentMonth).padStart(2, '0');
+        setDate(`${currentYear}-${mm}-01`);
+      } else {
+        // Otherwise, default to today's date
+        setDate(today.toISOString().split('T')[0]);
+      }
     }
-  }, [editingExpense, presetCategory, presetAmount, categories, isOpen]);
+  }, [editingExpense, presetCategory, presetAmount, categories, isOpen, currentMonth, currentYear]);
 
   if (!isOpen) return null;
 

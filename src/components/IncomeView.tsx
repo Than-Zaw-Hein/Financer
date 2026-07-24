@@ -34,6 +34,7 @@ interface IncomeViewProps {
       deductionNote?: string;
       linkedLoanId?: string;
       notes?: string;
+       incomeId?: string;
     }
   ) => Promise<void> | void;
   onCreateSource: (sourceData: {
@@ -43,6 +44,7 @@ interface IncomeViewProps {
     notes?: string;
   }) => Promise<void> | void;
   onDeleteSource: (sourceId: string) => void;
+  onDeleteRecord?: (incomeId: string) => void;
 }
 
 export const IncomeView: React.FC<IncomeViewProps> = ({
@@ -53,6 +55,7 @@ export const IncomeView: React.FC<IncomeViewProps> = ({
   onRecordIncome,
   onCreateSource,
   onDeleteSource,
+  onDeleteRecord,
 }) => {
   const [isAddSourceOpen, setIsAddSourceOpen] = useState(false);
   const [sourceName, setSourceName] = useState('');
@@ -60,9 +63,9 @@ export const IncomeView: React.FC<IncomeViewProps> = ({
   const [sourceType, setSourceType] = useState<'salary' | 'freelance' | 'business' | 'other'>('salary');
   const [sourceNotes, setSourceNotes] = useState('');
   const [isCreatingSource, setIsCreatingSource] = useState(false);
-
+const [deletingSourceId, setDeletingSourceId] = useState<string | null>(null);
   // Record modal state
-  const [recordingSource, setRecordingSource] = useState<IncomeSource | null>(null);
+  const [recordingSource, setRecordingSource] = useState<(IncomeSource & { currentIncome?: Income | null }) | null>(null);
   const [customRecordAmount, setCustomRecordAmount] = useState<string>('');
   const [receivedDate, setReceivedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [targetMonth, setTargetMonth] = useState<number>(new Date().getMonth() + 1);
@@ -84,40 +87,70 @@ export const IncomeView: React.FC<IncomeViewProps> = ({
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const handleOpenRecord = (source: IncomeSource) => {
+  const handleOpenRecord = (source: IncomeSource & { currentIncome?: Income | null }) => {
     setRecordingSource(source);
-    setCustomRecordAmount(source.amount.toString());
-    setReceivedDate(new Date().toISOString().split('T')[0]);
     
-    // Default target month: if receiving late in month (e.g. after 20th), default target to next month
-    const today = new Date();
-    let defaultTargetM = today.getMonth() + 1;
-    let defaultTargetY = today.getFullYear();
-    if (today.getDate() >= 20) {
-      if (defaultTargetM === 12) {
-        defaultTargetM = 1;
-        defaultTargetY += 1;
+    if (source.currentIncome) {
+      const rec = source.currentIncome;
+      setCustomRecordAmount(rec.amount.toString());
+      setReceivedDate(rec.receivedDate ? rec.receivedDate.split('T')[0] : new Date().toISOString().split('T')[0]);
+      setTargetMonth(rec.targetMonth || new Date().getMonth() + 1);
+      setTargetYear(rec.targetYear || new Date().getFullYear());
+      
+      const hasDed = !!(rec.deductionAmount && rec.deductionAmount > 0);
+      setHasDeduction(hasDed);
+      if (hasDed) {
+        setDeductionAmount((rec.deductionAmount || 0).toString());
+        setDeductionNote(rec.deductionNote || '');
+        setSelectedLoanId(rec.linkedLoanId || '');
       } else {
-        defaultTargetM += 1;
+        const activeBorrowedLoans = loans.filter((l) => l.status === 'active' && (l.type === 'borrowed' || !l.type));
+        if (activeBorrowedLoans.length > 0) {
+          const loan = activeBorrowedLoans[0];
+          setSelectedLoanId(loan.id);
+          setDeductionAmount(loan.monthlyPayment.toString());
+          setDeductionNote(`${loan.name} Direct Deduction`);
+        } else {
+          setSelectedLoanId('');
+          setDeductionAmount('');
+          setDeductionNote('');
+        }
       }
-    }
-    setTargetMonth(defaultTargetM);
-    setTargetYear(defaultTargetY);
-
-    // Pre-select first active borrowed loan if exists
-    const activeBorrowedLoans = loans.filter((l) => l.status === 'active' && (l.type === 'borrowed' || !l.type));
-    if (activeBorrowedLoans.length > 0) {
-      const loan = activeBorrowedLoans[0];
-      setSelectedLoanId(loan.id);
-      setDeductionAmount(loan.monthlyPayment.toString());
-      setDeductionNote(`${loan.name} Direct Deduction`);
+      setRecordNotes(rec.notes || '');
     } else {
-      setSelectedLoanId('');
-      setDeductionAmount('');
-      setDeductionNote('');
+      setCustomRecordAmount(source.amount.toString());
+      setReceivedDate(new Date().toISOString().split('T')[0]);
+      
+      // Default target month: if receiving late in month (e.g. after 20th), default target to next month
+      const today = new Date();
+      let defaultTargetM = today.getMonth() + 1;
+      let defaultTargetY = today.getFullYear();
+      if (today.getDate() >= 20) {
+        if (defaultTargetM === 12) {
+          defaultTargetM = 1;
+          defaultTargetY += 1;
+        } else {
+          defaultTargetM += 1;
+        }
+      }
+      setTargetMonth(defaultTargetM);
+      setTargetYear(defaultTargetY);
+
+      // Pre-select first active borrowed loan if exists
+      const activeBorrowedLoans = loans.filter((l) => l.status === 'active' && (l.type === 'borrowed' || !l.type));
+      if (activeBorrowedLoans.length > 0) {
+        const loan = activeBorrowedLoans[0];
+        setSelectedLoanId(loan.id);
+        setDeductionAmount(loan.monthlyPayment.toString());
+        setDeductionNote(`${loan.name} Direct Deduction`);
+      } else {
+        setSelectedLoanId('');
+        setDeductionAmount('');
+        setDeductionNote('');
+      }
+      setHasDeduction(false);
+      setRecordNotes('');
     }
-    setHasDeduction(false);
-    setRecordNotes('');
   };
 
   const handleConfirmRecord = async () => {
@@ -138,6 +171,7 @@ export const IncomeView: React.FC<IncomeViewProps> = ({
         deductionNote: hasDeduction ? deductionNote : undefined,
         linkedLoanId: hasDeduction ? selectedLoanId : undefined,
         notes: recordNotes,
+          incomeId: recordingSource.currentIncome?.id,
       });
       setRecordingSource(null);
     } finally {
@@ -311,12 +345,24 @@ export const IncomeView: React.FC<IncomeViewProps> = ({
                           <span className="text-emerald-400 text-sm">{formatMMK(recNet, currency)}</span>
                         </div>
 
-                        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
-                          <span>Received: {formatDateString(rec.receivedDate)}</span>
-                          {rec.targetMonth && (
-                            <span className="text-amber-400 font-semibold">
-                              Target Budget: {monthNames[rec.targetMonth - 1]} {rec.targetYear || 2026}
-                            </span>
+                         <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/40 mt-1">
+                          <div className="flex flex-col gap-0.5">
+                            <span>Received: {formatDateString(rec.receivedDate)}</span>
+                            {rec.targetMonth && (
+                              <span className="text-amber-400 font-semibold">
+                                Target Budget: {monthNames[rec.targetMonth - 1]} {rec.targetYear || 2026}
+                              </span>
+                            )}
+                          </div>
+                          {onDeleteRecord && (
+                            <button
+                              onClick={() => onDeleteRecord(rec.id)}
+                              className="px-2 py-1 rounded bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 hover:text-rose-300 text-[10px] font-semibold transition-colors flex items-center gap-1 border border-rose-800/40"
+                              title="Delete this recorded income record and set back to pending"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Clear Record</span>
+                            </button>
                           )}
                         </div>
                       </div>
@@ -330,27 +376,51 @@ export const IncomeView: React.FC<IncomeViewProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 pt-2">
-                  <button
-                    onClick={() => handleOpenRecord(source)}
-                    className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                      isReceived
-                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>{isReceived ? 'Update Record / Deductions' : 'Record Received'}</span>
-                  </button>
+                {deletingSourceId === source.id ? (
+                  <div className="mt-3 p-3 rounded-xl bg-rose-950/40 border border-rose-800/40 text-rose-200 text-xs space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <p className="font-semibold text-rose-300">Delete this income stream?</p>
+                    <p className="text-[10px] text-rose-400">This will delete the stream and mark all its historical records as deleted.</p>
+                    <div className="flex gap-2 justify-end pt-1">
+                      <button
+                        onClick={() => setDeletingSourceId(null)}
+                        className="px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 text-[10px] font-semibold transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setDeletingSourceId(null);
+                          await onDeleteSource(source.id);
+                        }}
+                        className="px-2.5 py-1 rounded bg-rose-700 text-white hover:bg-rose-600 text-[10px] font-semibold transition-colors shadow-lg"
+                      >
+                        Confirm Delete
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      onClick={() => handleOpenRecord(source)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                        isReceived
+                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{isReceived ? 'Update Record / Deductions' : 'Record Received'}</span>
+                    </button>
 
-                  <button
-                    onClick={() => onDeleteSource(source.id)}
-                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 border border-slate-700 transition-colors"
-                    title="Delete Source"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                    <button
+                      onClick={() => setDeletingSourceId(source.id)}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 border border-slate-700 transition-colors"
+                      title="Delete Source"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -429,9 +499,14 @@ export const IncomeView: React.FC<IncomeViewProps> = ({
                   onChange={(e) => setTargetYear(parseInt(e.target.value))}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                 >
-                  <option value={2025}>2025</option>
-                  <option value={2026}>2026</option>
-                  <option value={2027}>2027</option>
+                   {Array.from({ length: 3 }, (_, i) => {
+                    const year = new Date().getFullYear() - 1 + i;
+                    return (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -548,22 +623,41 @@ export const IncomeView: React.FC<IncomeViewProps> = ({
               />
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-              <button
-                onClick={() => setRecordingSource(null)}
-                disabled={isRecordingIncome}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmRecord}
-                disabled={isRecordingIncome}
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-lg disabled:opacity-50 flex items-center gap-2"
-              >
-                {isRecordingIncome && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Confirm & Record Salary</span>
-              </button>
+             <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+              {recordingSource.currentIncome && onDeleteRecord ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteRecord(recordingSource.currentIncome!.id);
+                    setRecordingSource(null);
+                  }}
+                  disabled={isRecordingIncome}
+                  className="px-4 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-400 hover:text-rose-300 text-xs font-semibold border border-rose-800/40 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Record</span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setRecordingSource(null)}
+                  disabled={isRecordingIncome}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmRecord}
+                  disabled={isRecordingIncome}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-lg disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isRecordingIncome && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{recordingSource.currentIncome ? 'Update Record' : 'Confirm & Record'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

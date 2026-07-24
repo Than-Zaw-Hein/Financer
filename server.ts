@@ -341,7 +341,7 @@ app.get('/api/expenses', (req: Request, res: Response) => {
 });
 
 app.post('/api/expenses', async (req: Request, res: Response) => {
-  const { amount, categoryId, name, date, method, notes, month, year } = req.body;
+ const { amount, categoryId, name, date, method, notes } = req.body;
   const nowISO = new Date().toISOString();
   const dt = safeDateObj(date);
 
@@ -354,8 +354,8 @@ app.post('/api/expenses', async (req: Request, res: Response) => {
     date: dt.toISOString(),
     method: method || 'cash',
     notes: notes || '',
-    month: month || dt.getMonth() + 1,
-    year: year || dt.getFullYear(),
+    month: dt.getMonth() + 1,
+    year: dt.getFullYear(),
     uuid: req.body.uuid || `tx-uuid-${Date.now()}`,
     isDeleted: false,
     updatedAt: nowISO,
@@ -378,19 +378,29 @@ app.put('/api/expenses/:id', async (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Transaction not found' });
   }
 
-  const { amount, categoryId, name, date, method, notes, month, year } = req.body;
+  const { amount, categoryId, name, date, method, notes } = req.body;
   const nowISO = new Date().toISOString();
 
+  let targetDate = store.transactions[index].date;
+  let targetMonth = store.transactions[index].month;
+  let targetYear = store.transactions[index].year;
+
+  if (date) {
+    const parsedDt = safeDateObj(date);
+    targetDate = parsedDt.toISOString();
+    targetMonth = parsedDt.getMonth() + 1;
+    targetYear = parsedDt.getFullYear();
+  }
   store.transactions[index] = {
     ...store.transactions[index],
     amount: amount !== undefined ? parseFloat(amount) : store.transactions[index].amount,
     categoryId: categoryId !== undefined ? categoryId : store.transactions[index].categoryId,
     name: name !== undefined ? name : store.transactions[index].name,
-    date: date ? toIso(date) : store.transactions[index].date,
+    date: targetDate,
     method: method !== undefined ? method : store.transactions[index].method,
     notes: notes !== undefined ? notes : store.transactions[index].notes,
-    month: month !== undefined ? parseInt(month) : store.transactions[index].month,
-    year: year !== undefined ? parseInt(year) : store.transactions[index].year,
+     month: targetMonth,
+    year: targetYear,
     updatedAt: nowISO,
   };
 
@@ -504,13 +514,37 @@ app.get('/api/income', (req: Request, res: Response) => {
   const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
   const year = parseInt(req.query.year as string) || new Date().getFullYear();
 
-  const activeIncomes = store.incomes.filter((i) => !i.isDeleted && i.month === month && i.year === year);
+  // Match if either received month/year or target budget month/year matches the selected view
+  const activeIncomes = store.incomes.filter((i) => {
+    if (i.isDeleted) return false;
+    const matchReceived = i.month === month && i.year === year;
+    const matchTarget = i.targetMonth === month && (i.targetYear === year || (!i.targetYear && i.year === year));
+    return matchReceived || matchTarget;
+  });
 
   const sourcesWithRecords = store.incomeSources.map((s) => {
-    const rec = activeIncomes.find((i) => i.sourceId === s.id);
+    const recs = activeIncomes.filter((i) => i.sourceId === s.id);
+    if (recs.length === 0) {
+      return {
+        ...s,
+        currentIncome: null,
+      };
+    }
+    
+    // Prefer the one where targetMonth matches the requested month
+    const targetMatch = recs.find((i) => i.targetMonth === month && (i.targetYear === year || (!i.targetYear && i.year === year)));
+    if (targetMatch) {
+      return {
+        ...s,
+        currentIncome: targetMatch,
+      };
+    }
+
+    // Fallback to the one where received month matches the requested month
+    const receivedMatch = recs.find((i) => i.month === month && i.year === year);
     return {
       ...s,
-      currentIncome: rec || null,
+      currentIncome: receivedMatch || recs[0],
     };
   });
 
@@ -557,6 +591,7 @@ app.post('/api/income/:id/record', async (req: Request, res: Response) => {
     deductionAmount,
     deductionNote,
     linkedLoanId,
+    incomeId,
   } = req.body;
 
   const source = store.incomeSources.find((s) => s.id === id);
@@ -605,9 +640,23 @@ app.post('/api/income/:id/record', async (req: Request, res: Response) => {
       await persistLoanPayment(paymentRecord);
     }
   }
+let existing = null;
+  if (incomeId) {
+    existing = store.incomes.find((i) => !i.isDeleted && i.id === incomeId);
+  }
 
-  let existing = store.incomes.find((i) => !i.isDeleted && i.sourceId === id && i.month === m && i.year === y);
+  if (!existing) {
+    const targetM = targetMonth ? parseInt(targetMonth as any) : null;
+    const targetY = targetYear ? parseInt(targetYear as any) : null;
 
+    existing = store.incomes.find((i) => {
+      if (i.isDeleted || i.sourceId !== id) return false;
+      if (targetM !== null && targetM !== undefined) {
+        return i.targetMonth === targetM && (i.targetYear === targetY || (!i.targetYear && i.year === targetY));
+      }
+      return i.month === m && i.year === y;
+    });
+  }
   if (existing) {
     existing.amount = parsedAmount;
     existing.notes = notes || existing.notes;
@@ -694,6 +743,52 @@ app.delete('/api/income/:id', async (req: Request, res: Response) => {
   res.json({ message: 'Income source deleted', id });
 });
 
+app.delete('/api/income/record/:incomeId', async (req: Request, res: Response) => {
+  const { incomeId } = req.params;
+  const existingIndex = store.incomes.findIndex((i) => !i.isDeleted && i.id === incomeId);
+
+  if (existingIndex === -1) {
+    return res.status(404).json({ error: 'Income record not found' });
+  }
+
+  const existingIncome = store.incomes[existingIndex];
+  existingIncome.isDeleted = true;
+  existingIncome.updatedAt = new Date().toISOString();
+
+  // Reverse any linked loan payment if present
+  if (existingIncome.linkedLoanId && existingIncome.deductionAmount && existingIncome.deductionAmount > 0) {
+    const loan = store.loans.find((l) => l.id === existingIncome.linkedLoanId);
+    const source = store.incomeSources.find((s) => s.id === existingIncome.sourceId);
+    const sourceName = source ? source.name : '';
+
+    if (loan && loan.payments) {
+      const pIndex = loan.payments.findIndex((p) => {
+        const noteMatches = p.notes === existingIncome.deductionNote || 
+                            p.notes === `Direct deduction from ${sourceName}` ||
+                            (existingIncome.deductionNote && p.notes?.includes(existingIncome.deductionNote));
+        const amountMatches = Math.abs(parseFloat(p.amount as any) - existingIncome.deductionAmount!) < 0.01;
+        return noteMatches && amountMatches;
+      });
+
+      if (pIndex !== -1) {
+        const payment = loan.payments[pIndex];
+        loan.payments.splice(pIndex, 1);
+        loan.balance += payment.principalPart;
+        loan.totalPaid = Math.max(0, loan.totalPaid - payment.amount);
+        if (loan.balance > 0) {
+          loan.status = 'active';
+        }
+        loan.updatedAt = new Date().toISOString();
+        await deleteLoanPaymentDb(payment.id);
+        await persistLoan(loan);
+      }
+    }
+  }
+
+  await persistIncomeRecord(existingIncome);
+
+  res.json({ message: 'Income record deleted', incomeId });
+});
 // 5. Loans & Amortization
 app.get('/api/loans', (req: Request, res: Response) => {
   const now = new Date();
@@ -1011,40 +1106,40 @@ function getSyncedData() {
     category: store.categories.find((c) => c.id === t.categoryId) || null,
   }));
 
-  const borrowedLoanPaymentsAsExpenses = store.loans
-    .filter((l) => l.type === 'borrowed' || !l.type)
-    .flatMap((l) => {
-      return (l.payments || []).map((p) => {
-        const pDate = safeDateObj(p.paymentDate);
-        return {
-          id: `loan-pay-tx-${p.id}`,
-          amount: typeof p.amount === 'number' ? p.amount : parseFloat(p.amount as any),
-          type: 'EXPENSE' as const,
-          categoryId: 'cat-extra',
-          category: store.categories.find((c) => c.id === 'cat-extra') || {
-            id: 'cat-extra',
-            name: 'Extra',
-            icon: '✨',
-            color: '#F0C000',
-            isPlanBudget: false,
-            budgetAmount: null,
-            isDeleted: false,
-            updatedAt: p.paymentDate,
-          },
-          name: `${l.name} Payment`,
-          date: p.paymentDate,
-          method: 'Bank Transfer',
-          notes: p.notes || `${l.name} Installment Payment`,
-          month: p.targetMonth || (pDate.getMonth() + 1),
-          year: p.targetYear || pDate.getFullYear(),
-          uuid: `uuid-pay-${p.id}`,
-          isDeleted: false,
-          updatedAt: p.paymentDate,
-        };
-      });
-    });
+  // const borrowedLoanPaymentsAsExpenses = store.loans
+  //   .filter((l) => l.type === 'borrowed' || !l.type)
+  //   .flatMap((l) => {
+  //     return (l.payments || []).map((p) => {
+  //       const pDate = safeDateObj(p.paymentDate);
+  //       return {
+  //         id: `loan-pay-tx-${p.id}`,
+  //         amount: typeof p.amount === 'number' ? p.amount : parseFloat(p.amount as any),
+  //         type: 'EXPENSE' as const,
+  //         categoryId: 'cat-extra',
+  //         category: store.categories.find((c) => c.id === 'cat-extra') || {
+  //           id: 'cat-extra',
+  //           name: 'Extra',
+  //           icon: '✨',
+  //           color: '#F0C000',
+  //           isPlanBudget: false,
+  //           budgetAmount: null,
+  //           isDeleted: false,
+  //           updatedAt: p.paymentDate,
+  //         },
+  //         name: `${l.name} Payment`,
+  //         date: p.paymentDate,
+  //         method: 'Bank Transfer',
+  //         notes: p.notes || `${l.name} Installment Payment`,
+  //         month: p.targetMonth || (pDate.getMonth() + 1),
+  //         year: p.targetYear || pDate.getFullYear(),
+  //         uuid: `uuid-pay-${p.id}`,
+  //         isDeleted: false,
+  //         updatedAt: p.paymentDate,
+  //       };
+  //     });
+  //   });
 
-  const allExpensesSynced = [...activeExpensesMapped, ...borrowedLoanPaymentsAsExpenses];
+  const allExpensesSynced = [...activeExpensesMapped];
 
   const activeIncomesMapped = store.incomes.filter((i) => !i.isDeleted).map((i) => ({
     ...i,
@@ -1052,32 +1147,32 @@ function getSyncedData() {
     deductionAmount: typeof i.deductionAmount === 'number' ? i.deductionAmount : parseFloat((i.deductionAmount || '0') as any),
   }));
 
-  const lentLoanCollectionsAsIncomes = store.loans
-    .filter((l) => l.type === 'lent')
-    .flatMap((l) => {
-      return (l.payments || []).map((p) => {
-        const pDate = safeDateObj(p.paymentDate);
-        return {
-          id: `loan-collect-inc-${p.id}`,
-          sourceId: 'inc-src-loans',
-          amount: typeof p.amount === 'number' ? p.amount : parseFloat(p.amount as any),
-          month: p.targetMonth || (pDate.getMonth() + 1),
-          year: p.targetYear || pDate.getFullYear(),
-          receivedDate: p.paymentDate,
-          notes: p.notes || `Lent Collection from ${l.lender || 'Debtor'}`,
-          uuid: `uuid-pay-${p.id}`,
-          isDeleted: false,
-          updatedAt: p.paymentDate,
-          deductionAmount: 0,
-          deductionNote: null,
-          linkedLoanId: null,
-          targetMonth: p.targetMonth || null,
-          targetYear: p.targetYear || null,
-        };
-      });
-    });
+  // const lentLoanCollectionsAsIncomes = store.loans
+  //   .filter((l) => l.type === 'lent')
+  //   .flatMap((l) => {
+  //     return (l.payments || []).map((p) => {
+  //       const pDate = safeDateObj(p.paymentDate);
+  //       return {
+  //         id: `loan-collect-inc-${p.id}`,
+  //         sourceId: 'inc-src-loans',
+  //         amount: typeof p.amount === 'number' ? p.amount : parseFloat(p.amount as any),
+  //         month: p.targetMonth || (pDate.getMonth() + 1),
+  //         year: p.targetYear || pDate.getFullYear(),
+  //         receivedDate: p.paymentDate,
+  //         notes: p.notes || `Lent Collection from ${l.lender || 'Debtor'}`,
+  //         uuid: `uuid-pay-${p.id}`,
+  //         isDeleted: false,
+  //         updatedAt: p.paymentDate,
+  //         deductionAmount: 0,
+  //         deductionNote: null,
+  //         linkedLoanId: null,
+  //         targetMonth: p.targetMonth || null,
+  //         targetYear: p.targetYear || null,
+  //       };
+  //     });
+  //   });
 
-  const allIncomesSynced = [...activeIncomesMapped, ...lentLoanCollectionsAsIncomes];
+  const allIncomesSynced = [...activeIncomesMapped, ];
 
   return {
     categories: activeCategories,
@@ -1239,12 +1334,12 @@ app.post('/api/sync', async (req: Request, res: Response) => {
       const mobileTime = typeof inc.updatedAt === 'number' ? inc.updatedAt : new Date(inc.updatedAt || 0).getTime();
       const incDate = safeDateObj(inc.date);
 
-      const sourceName = inc.note || 'Mobile Import';
-      let src = store.incomeSources.find((s) => s.name.toLowerCase() === sourceName.toLowerCase());
+      const sourceId = inc.sourceId || inc.uuid;
+      let src = store.incomeSources.find((s) => s.id.toLowerCase() === sourceId.toLowerCase());
       if (!src) {
         src = {
-          id: `inc-src-${Date.now()}`,
-          name: sourceName,
+          id: sourceId,
+          name: inc.sourceName || 'Mobile Sync Income',
           amount: inc.amount,
           type: 'salary',
           notes: 'Auto-created from Mobile Sync',
@@ -1275,6 +1370,8 @@ app.post('/api/sync', async (req: Request, res: Response) => {
           notes: inc.note || 'Mobile Income Import',
           uuid: inc.uuid,
           isDeleted: false,
+          targetMonth: incDate.getMonth() + 1,
+          targetYear: incDate.getFullYear(),
           updatedAt: new Date(mobileTime || Date.now()).toISOString(),
         };
         store.incomes.push(newIncomeRecord);

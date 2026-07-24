@@ -168,6 +168,7 @@ export default function App() {
       deductionNote?: string;
       linkedLoanId?: string;
       notes?: string;
+        incomeId?: string;
     }
   ) => {
     await fetch(`/api/income/${sourceId}/record`, {
@@ -184,6 +185,7 @@ export default function App() {
         deductionNote: payload.deductionNote,
         linkedLoanId: payload.linkedLoanId,
         notes: payload.notes,
+          incomeId: payload.incomeId,
       }),
     });
     await fetchAllData();
@@ -201,13 +203,18 @@ export default function App() {
   };
 
   const handleDeleteIncomeSource = async (id: string) => {
-    if (confirm('Delete this income stream?')) {
-      await fetch(`/api/income/${id}`, { method: 'DELETE' });
-      await fetchAllData();
-      showToast('Income source deleted.', 'info');
-    }
+    await fetch(`/api/income/${id}`, { method: 'DELETE' });
+    await fetchAllData();
+    showToast('Income source deleted.', 'info');
   };
 
+  const handleDeleteIncomeRecord = async (incomeId: string) => {
+    if (confirm('Are you sure you want to delete this recorded income and revert it back to pending? This will also undo any direct loan payments auto-deducted from this paycheck.')) {
+      await fetch(`/api/income/record/${incomeId}`, { method: 'DELETE' });
+      await fetchAllData();
+      showToast('Recorded income cleared successfully.', 'info');
+    }
+  };
   // Category Handlers
   const handleCreateCategory = async (catData: any) => {
     await fetch('/api/categories', {
@@ -400,6 +407,7 @@ export default function App() {
               onRecordIncome={handleRecordIncome}
               onCreateSource={handleCreateIncomeSource}
               onDeleteSource={handleDeleteIncomeSource}
+                onDeleteRecord={handleDeleteIncomeRecord}
             />
           )}
 
@@ -451,6 +459,8 @@ export default function App() {
         presetCategory={presetCategory}
         presetAmount={presetAmount}
         onSave={handleSaveExpense}
+          currentMonth={currentMonth}
+        currentYear={currentYear}
       />
 
       {/* Floating Toast Notification System */}
